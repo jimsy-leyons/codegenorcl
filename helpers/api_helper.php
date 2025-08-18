@@ -136,12 +136,20 @@ function generateControllerClass($table, $columns)
     writeFile($path, $filename, $controllerContent);
 }
 
-function generateServiceClass($table, $columns)
+function generateServiceClass($table, $columns, $foreignKeys = [])
 {
+    $joins = [];
+    if (count($foreignKeys) > 0) {
+        $tableUpperCase = strtoupper($table);
+        foreach ($foreignKeys as $fk) {
+            $joins[] = "new OrclJoin('" . $fk['referenced_table'] . "', '$tableUpperCase." . $fk['column'] . " = " . $fk['referenced_table'] . "." . $fk['referenced_column'] . "', 'LEFT')";
+        }
+    }
     $serviceName = ucwords($table) . "Service";
     $modelName = ucwords($table) . "Model";
     $serviceContent = "<?php\n";
     $serviceContent .= "namespace App\\Libraries\\Services;\n\n";
+    $serviceContent .= count($joins) > 0 ? "use App\\Entities\\OrclJoin;\n" : "";
     $serviceContent .= "use App\\Models\\$modelName;\n";
     $serviceContent .= "use CodeIgniter\\Database\\Exceptions\\DatabaseException;\n";
     $serviceContent .= "use Exception;\n\n";
@@ -162,7 +170,9 @@ function generateServiceClass($table, $columns)
     $serviceContent .= "    {\n";
     $serviceContent .= "        // Define default columns and joins for queries\n";
     $serviceContent .= "        \$this->defaultColumns = []; // Customize default columns\n";
-    $serviceContent .= "        \$this->joins = [];          // Customize joins if needed\n";
+    $serviceContent .= "        \$this->joins = [" .
+        (count($joins) > 0 ? implode(", \n", $joins) : "") .
+        "];          // Customize joins if needed\n";
     $serviceContent .= "    }\n\n";
 
     $serviceContent .= "    /**\n";
@@ -326,12 +336,12 @@ function generateRouteClass($table, $columns)
     writeFile($path, $filename, $routeCode);
 }
 
-function generateApiCode($table, $columns)
+function generateApiCode($table, $columns, $foreignKeys = [])
 {
 
     echo "<li>API code generation started. -> ";
     generateControllerClass($table, $columns);
-    generateServiceClass($table, $columns);
+    generateServiceClass($table, $columns, $foreignKeys);
     generateModelClass($table, $columns);
     generateRouteClass($table, $columns);
     echo "Finished API code genration.</li>";
